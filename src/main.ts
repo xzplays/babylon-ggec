@@ -1,13 +1,14 @@
-import { Color3, Engine, MeshBuilder, Scene, StandardMaterial, Vector3 } from "@babylonjs/core";
+import { Engine, MeshBuilder, Scene, Vector3 } from "@babylonjs/core";
 import "./style.css";
 import { createCampusScene } from "./scene/createCampusScene";
 import { createCameraController } from "./camera/cameraController";
 import { createPlayerController } from "./player/playerController";
 import { createHud } from "./ui/hud";
+import { PLAYER_HEIGHT, PLAYER_RADIUS } from "./player/playerConstants";
 const canvas=document.querySelector<HTMLCanvasElement>("#renderCanvas"); if(!canvas) throw new Error("Canvas #renderCanvas was not found.");
 const engine=new Engine(canvas,true); const scene=new Scene(engine); const campus=createCampusScene(scene);
-const mat=new StandardMaterial("访客蓝色材质",scene); mat.diffuseColor=new Color3(.1,.34,.9); const player=MeshBuilder.CreateCapsule("1.75m访客",{height:1.75,radius:.38},scene); player.position=new Vector3(0,.875,-430); player.material=mat; player.checkCollisions=true; player.ellipsoid=new Vector3(.45,.875,.45);
+const player=MeshBuilder.CreateCapsule("访客简化碰撞体",{height:PLAYER_HEIGHT,radius:PLAYER_RADIUS},scene); player.position=new Vector3(0,PLAYER_HEIGHT/2,-430); player.isVisible=false; player.checkCollisions=true; player.ellipsoid=new Vector3(PLAYER_RADIUS,PLAYER_HEIGHT/2,PLAYER_RADIUS);
 const cameras=createCameraController(scene,canvas,player); let hud: ReturnType<typeof createHud>;
 const playerController=createPlayerController(scene,cameras,player,campus.buildings,(s)=>hud.setLocation(s)); cameras.syncTo(player.position,0);
-hud=createHud(campus.buildings,()=>({mode:cameras.viewMode,location:"室外园区",x:player.position.x,z:player.position.z,speed:playerController.getWalkSpeed()}),(b,i)=>playerController.goTo(b,i),playerController.setWalkSpeed);
+hud=createHud(campus.buildings,()=>({mode:cameras.viewMode,location:"室外园区",x:player.position.x,z:player.position.z,speed:playerController.getWalkSpeed()}),(b,i)=>playerController.goTo(b,i),playerController.setWalkSpeed,playerController.resetToEntrance);
 engine.runRenderLoop(()=>scene.render()); window.addEventListener("resize",()=>engine.resize());
