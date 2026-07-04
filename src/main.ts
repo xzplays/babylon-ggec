@@ -45,14 +45,19 @@ scene.gravity = new Vector3(0, -0.35, 0);
 const modeLabel = document.querySelector<HTMLParagraphElement>("#modeLabel");
 const buildingList = document.querySelector<HTMLDivElement>("#buildingList");
 const locationLabel = document.querySelector<HTMLParagraphElement>("#locationLabel");
+const speedLabel = document.querySelector<HTMLSpanElement>("#speedLabel");
+const speedSlider = document.querySelector<HTMLInputElement>("#speedSlider");
+const buildingPanel = document.querySelector<HTMLElement>("#buildingPanel");
+const panelToggle = document.querySelector<HTMLButtonElement>("#panelToggle");
 let viewMode: ViewMode = "first";
 let currentLocation = "室外园区";
+let walkSpeed = 0.22;
 
 // 1 Babylon unit = 1 real-world meter. The map therefore uses real campus-like dimensions.
-const campusWidth = 1000;
-const campusHeight = 820;
+const campusWidth = 1200;
+const campusHeight = 900;
 const wallThickness = 0.35;
-const doorWidth = 4.2;
+const doorWidth = 6.0;
 
 const createMaterial = (name: string, color: Color3, textureUrl?: string) => {
   const material = new StandardMaterial(name, scene);
@@ -123,12 +128,12 @@ const createBuildingLabel = (text: string, position: Vector3) => {
   return label;
 };
 
-makeBox("north ring road", new Vector3(0, 0.03, -330), new Vector3(900, 0.04, 10), road);
-makeBox("south ring road", new Vector3(0, 0.03, 330), new Vector3(900, 0.04, 10), road);
-makeBox("west ring road", new Vector3(-430, 0.03, 0), new Vector3(10, 0.04, 660), road);
-makeBox("east ring road", new Vector3(430, 0.03, 0), new Vector3(10, 0.04, 660), road);
-makeBox("central spine road", new Vector3(0, 0.04, 0), new Vector3(860, 0.04, 8), road);
-makeBox("north-south trunk road", new Vector3(0, 0.04, 0), new Vector3(8, 0.04, 650), road);
+makeBox("north ring road", new Vector3(0, 0.03, -390), new Vector3(1080, 0.04, 12), road);
+makeBox("south ring road", new Vector3(0, 0.03, 390), new Vector3(1080, 0.04, 12), road);
+makeBox("west ring road", new Vector3(-540, 0.03, 0), new Vector3(12, 0.04, 780), road);
+makeBox("east ring road", new Vector3(540, 0.03, 0), new Vector3(12, 0.04, 780), road);
+makeBox("central spine road", new Vector3(0, 0.04, 0), new Vector3(1040, 0.04, 10), road);
+makeBox("north-south trunk road", new Vector3(0, 0.04, 0), new Vector3(10, 0.04, 760), road);
 makeBox("phase one workshop road", new Vector3(-250, 0.05, -130), new Vector3(260, 0.03, 4.4), path);
 makeBox("phase one service road", new Vector3(-250, 0.05, 140), new Vector3(260, 0.03, 4.4), path);
 makeBox("phase two production road", new Vector3(230, 0.05, -120), new Vector3(300, 0.03, 4.4), path);
@@ -167,19 +172,22 @@ const addFurniture = (name: string, x: number, z: number, width: number, depth: 
   makeBox(`${name} back room divider`, new Vector3(x, 1.6, z + depth * 0.22), new Vector3(width * 0.55, 3.2, wallThickness), innerWall);
 };
 
+const usableFloorHeight = (spec: BuildingSpec) => Math.max(spec.height / spec.floors, spec.type === "factory" || spec.type === "warehouse" || spec.type === "logistics" ? 7 : 4.5);
+
 const createVerticalAccess = (spec: BuildingSpec, floorHeight: number) => {
   const { name, x, z, width, depth, floors, hasElevator, hasStairs } = spec;
   const coreX = x - width / 2 + 7;
   const coreZ = z - depth / 2 + 8;
 
   if (hasStairs) {
-    makeBox(`${name} stairwell shaft`, new Vector3(coreX, (floors * floorHeight) / 2, coreZ), new Vector3(4.2, floors * floorHeight, 5), stairMat);
+    makeBox(`${name} stairwell landing wall`, new Vector3(coreX - 2.4, (floors * floorHeight) / 2, coreZ), new Vector3(0.28, floors * floorHeight, 5), stairMat);
+    makeBox(`${name} stairwell guard rail`, new Vector3(coreX + 2.4, (floors * floorHeight) / 2, coreZ), new Vector3(0.28, floors * floorHeight, 5), stairMat, false);
     for (let floor = 0; floor < floors; floor += 1) {
       for (let step = 0; step < 6; step += 1) {
         makeBox(
           `${name} stair ${floor + 1}-${step + 1}`,
-          new Vector3(coreX + (step - 2.5) * 0.55, floor * floorHeight + 0.25 + step * 0.18, coreZ + 1.9),
-          new Vector3(0.55, 0.18, 1.1),
+          new Vector3(coreX + (step - 2.5) * 0.75, floor * floorHeight + 0.22 + step * (floorHeight / 7), coreZ + 1.9),
+          new Vector3(0.75, 0.18, 1.1),
           concrete
         );
       }
@@ -197,23 +205,24 @@ const createVerticalAccess = (spec: BuildingSpec, floorHeight: number) => {
 };
 
 const createEnterableBuilding = (spec: BuildingSpec) => {
-  const { name, x, z, width, height, depth, material, lobby, floors, type } = spec;
-  const floorHeight = height / floors;
+  const { name, x, z, width, depth, material, lobby, floors, type } = spec;
+  const floorHeight = usableFloorHeight(spec);
+  const scaledHeight = floorHeight * floors;
   makeBox(`${name} floor`, new Vector3(x, 0.08, z), new Vector3(width, 0.16, depth), floorMat, false);
   for (let floor = 1; floor < floors; floor += 1) {
     makeBox(`${name} level ${floor + 1} slab`, new Vector3(x, floor * floorHeight, z), new Vector3(width - 1.2, 0.16, depth - 1.2), floorMat);
   }
-  makeBox(`${name} roof`, new Vector3(x, height + 0.3, z), new Vector3(width + 1.4, 0.6, depth + 1.4), roof);
-  makeBox(`${name} north wall`, new Vector3(x, height / 2, z - depth / 2), new Vector3(width, height, wallThickness), material);
-  makeBox(`${name} west wall`, new Vector3(x - width / 2, height / 2, z), new Vector3(wallThickness, height, depth), material);
-  makeBox(`${name} east wall`, new Vector3(x + width / 2, height / 2, z), new Vector3(wallThickness, height, depth), material);
-  makeBox(`${name} south wall left`, new Vector3(x - (width + doorWidth) / 4, height / 2, z + depth / 2), new Vector3((width - doorWidth) / 2, height, wallThickness), material);
-  makeBox(`${name} south wall right`, new Vector3(x + (width + doorWidth) / 4, height / 2, z + depth / 2), new Vector3((width - doorWidth) / 2, height, wallThickness), material);
-  makeBox(`${name} lintel`, new Vector3(x, height - 0.7, z + depth / 2), new Vector3(doorWidth, 1.4, wallThickness), material);
+  makeBox(`${name} roof`, new Vector3(x, scaledHeight + 0.3, z), new Vector3(width + 1.4, 0.6, depth + 1.4), roof);
+  makeBox(`${name} north wall`, new Vector3(x, scaledHeight / 2, z - depth / 2), new Vector3(width, scaledHeight, wallThickness), material);
+  makeBox(`${name} west wall`, new Vector3(x - width / 2, scaledHeight / 2, z), new Vector3(wallThickness, scaledHeight, depth), material);
+  makeBox(`${name} east wall`, new Vector3(x + width / 2, scaledHeight / 2, z), new Vector3(wallThickness, scaledHeight, depth), material);
+  makeBox(`${name} south wall left`, new Vector3(x - (width + doorWidth) / 4, scaledHeight / 2, z + depth / 2), new Vector3((width - doorWidth) / 2, scaledHeight, wallThickness), material);
+  makeBox(`${name} south wall right`, new Vector3(x + (width + doorWidth) / 4, scaledHeight / 2, z + depth / 2), new Vector3((width - doorWidth) / 2, scaledHeight, wallThickness), material);
+  makeBox(`${name} lintel`, new Vector3(x, scaledHeight - 0.7, z + depth / 2), new Vector3(doorWidth, 1.4, wallThickness), material);
   makeBox(`${name} entry marker`, new Vector3(x, 0.06, z + depth / 2 + 3), new Vector3(doorWidth, 0.08, 2.6), markerMat, false);
   addFurniture(name, x, z, width, depth, type);
   createVerticalAccess(spec, floorHeight);
-  createBuildingLabel(name, new Vector3(x, height + 4, z));
+  createBuildingLabel(name, new Vector3(x, scaledHeight + 4, z));
   createBuildingLabel(`${lobby} · ${floors}层`, new Vector3(x, 3.4, z + depth * 0.18));
 };
 
@@ -276,15 +285,15 @@ player.ellipsoid = new Vector3(0.55, 1.1, 0.55);
 
 const firstCamera = new UniversalCamera("first person camera", new Vector3(0, 2.0, -355), scene);
 firstCamera.attachControl(canvas, true);
-firstCamera.speed = 0.65;
+firstCamera.speed = 0;
 firstCamera.angularSensibility = 3200;
 firstCamera.applyGravity = true;
 firstCamera.checkCollisions = true;
 firstCamera.ellipsoid = new Vector3(0.55, 1, 0.55);
-firstCamera.keysUp.push(87);
-firstCamera.keysDown.push(83);
-firstCamera.keysLeft.push(65);
-firstCamera.keysRight.push(68);
+firstCamera.keysUp = [];
+firstCamera.keysDown = [];
+firstCamera.keysLeft = [];
+firstCamera.keysRight = [];
 
 const thirdCamera = new ArcRotateCamera("third person camera", Math.PI / 2, Math.PI / 3, 18, player.position, scene);
 thirdCamera.attachControl(canvas, true);
@@ -293,10 +302,10 @@ thirdCamera.upperRadiusLimit = 32;
 thirdCamera.wheelDeltaPercentage = 0.02;
 thirdCamera.checkCollisions = true;
 
-const overheadCamera = new ArcRotateCamera("overhead camera", Math.PI / 2, 0.08, 760, Vector3.Zero(), scene);
+const overheadCamera = new ArcRotateCamera("overhead camera", Math.PI / 2, 0.08, 900, Vector3.Zero(), scene);
 overheadCamera.attachControl(canvas, true);
 overheadCamera.lowerRadiusLimit = 220;
-overheadCamera.upperRadiusLimit = 1050;
+overheadCamera.upperRadiusLimit = 1350;
 overheadCamera.wheelDeltaPercentage = 0.03;
 overheadCamera.panningSensibility = 80;
 
@@ -331,6 +340,17 @@ const setViewMode = (mode: ViewMode) => {
   modeLabel!.textContent = `当前：${modeText(mode)}`;
 };
 
+panelToggle?.addEventListener("click", () => {
+  const collapsed = buildingPanel?.classList.toggle("collapsed") ?? false;
+  panelToggle.textContent = collapsed ? "展开" : "收起";
+  panelToggle.setAttribute("aria-expanded", String(!collapsed));
+});
+
+speedSlider?.addEventListener("input", () => {
+  walkSpeed = Number(speedSlider.value);
+  if (speedLabel) speedLabel.textContent = `${walkSpeed.toFixed(2)} m/帧`;
+});
+
 buildingList?.replaceChildren(
   ...buildings.flatMap((building) => {
     const frontButton = document.createElement("button");
@@ -358,11 +378,37 @@ window.addEventListener("keydown", (event) => {
     });
     if (nearest) goToBuilding(nearest, true);
   }
+  if (event.code === "KeyF") {
+    const elevator = buildings.find((building) => building.hasElevator && Vector3.Distance(player.position, new Vector3(building.x + building.width / 2 - 7, player.position.y, building.z - building.depth / 2 + 10)) < 8);
+    if (elevator) {
+      const floorHeight = usableFloorHeight(elevator);
+      const currentFloor = Math.max(0, Math.round((player.position.y - 1.1) / floorHeight));
+      const nextFloor = (currentFloor + 1) % elevator.floors;
+      syncCamerasTo(new Vector3(elevator.x + elevator.width / 2 - 7, nextFloor * floorHeight + 1.1, elevator.z - elevator.depth / 2 + 12), Math.PI);
+      currentLocation = `${elevator.name} · ${nextFloor + 1}层电梯厅`;
+      if (locationLabel) locationLabel.textContent = `位置：${currentLocation}`;
+    }
+  }
 });
 window.addEventListener("keyup", (event) => keys.delete(event.code));
 
 scene.onBeforeRenderObservable.add(() => {
   if (viewMode === "first") {
+    const forward = firstCamera.getDirection(Vector3.Forward());
+    forward.y = 0;
+    forward.normalize();
+    const right = firstCamera.getDirection(Vector3.Right());
+    right.y = 0;
+    right.normalize();
+    const direction = Vector3.Zero();
+    if (keys.has("KeyW") || keys.has("ArrowUp")) direction.addInPlace(forward);
+    if (keys.has("KeyS") || keys.has("ArrowDown")) direction.subtractInPlace(forward);
+    if (keys.has("KeyD") || keys.has("ArrowRight")) direction.addInPlace(right);
+    if (keys.has("KeyA") || keys.has("ArrowLeft")) direction.subtractInPlace(right);
+    if (direction.lengthSquared() > 0) {
+      direction.normalize().scaleInPlace(keys.has("ShiftLeft") || keys.has("ShiftRight") ? walkSpeed * 1.8 : walkSpeed);
+      firstCamera.cameraDirection.addInPlace(direction);
+    }
     player.position.copyFrom(firstCamera.position).addInPlaceFromFloats(0, -1, 0);
     player.isVisible = false;
     return;
@@ -383,7 +429,7 @@ scene.onBeforeRenderObservable.add(() => {
   if (keys.has("KeyD") || keys.has("ArrowRight")) direction.addInPlace(right);
   if (keys.has("KeyA") || keys.has("ArrowLeft")) direction.subtractInPlace(right);
   if (direction.lengthSquared() > 0) {
-    direction.normalize().scaleInPlace(keys.has("ShiftLeft") || keys.has("ShiftRight") ? 0.85 : 0.45);
+    direction.normalize().scaleInPlace(keys.has("ShiftLeft") || keys.has("ShiftRight") ? walkSpeed * 1.8 : walkSpeed);
     player.moveWithCollisions(direction);
   }
   thirdCamera.target = player.position.add(new Vector3(0, 1.1, 0));
