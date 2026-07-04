@@ -119,8 +119,19 @@ export const createPlayerController = (
   window.addEventListener("keydown", (event) => {
     keys.add(event.code);
 
-    if (event.code === "KeyV") {
-      cameras.setViewMode(cameras.viewMode === "first" ? "third" : cameras.viewMode === "third" ? "overhead" : "first");
+    if (event.code === "F1") {
+      event.preventDefault();
+      cameras.setViewMode("first");
+    }
+
+    if (event.code === "F2") {
+      event.preventDefault();
+      cameras.setViewMode("third");
+    }
+
+    if (event.code === "F4") {
+      event.preventDefault();
+      cameras.setViewMode("overhead");
     }
 
     if (event.code === "KeyE") {
