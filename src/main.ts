@@ -15,6 +15,7 @@ import {
 import "./style.css";
 
 type ViewMode = "first" | "third" | "overhead";
+type BuildingType = "factory" | "warehouse" | "office" | "dormitory" | "amenity" | "logistics";
 type BuildingSpec = {
   name: string;
   x: number;
@@ -24,6 +25,10 @@ type BuildingSpec = {
   depth: number;
   material: StandardMaterial;
   lobby: string;
+  type: BuildingType;
+  floors: number;
+  hasElevator?: boolean;
+  hasStairs?: boolean;
 };
 
 const canvas = document.querySelector<HTMLCanvasElement>("#renderCanvas");
@@ -44,8 +49,8 @@ let viewMode: ViewMode = "first";
 let currentLocation = "室外园区";
 
 // 1 Babylon unit = 1 real-world meter. The map therefore uses real campus-like dimensions.
-const campusWidth = 420;
-const campusHeight = 300;
+const campusWidth = 1000;
+const campusHeight = 820;
 const wallThickness = 0.35;
 const doorWidth = 4.2;
 
@@ -76,6 +81,11 @@ const innerWall = createMaterial("interior wall", new Color3(0.9, 0.9, 0.84));
 const furniture = createMaterial("furniture", new Color3(0.42, 0.28, 0.16));
 const markerMat = createMaterial("entry marker", new Color3(0.05, 0.82, 0.55));
 markerMat.emissiveColor = new Color3(0.02, 0.45, 0.26);
+const steel = createMaterial("steel workshop", new Color3(0.68, 0.72, 0.78));
+const dormMat = createMaterial("dormitory facade", new Color3(0.86, 0.74, 0.58));
+const equipmentMat = createMaterial("production equipment", new Color3(0.12, 0.2, 0.28));
+const elevatorMat = createMaterial("elevator doors", new Color3(0.72, 0.76, 0.78));
+const stairMat = createMaterial("stair core", new Color3(0.48, 0.5, 0.52));
 
 new HemisphericLight("skyLight", new Vector3(0.4, 1, 0.2), scene).intensity = 0.82;
 
@@ -113,25 +123,86 @@ const createBuildingLabel = (text: string, position: Vector3) => {
   return label;
 };
 
-makeBox("north ring road", new Vector3(0, 0.03, -105), new Vector3(190, 0.04, 7), road);
-makeBox("south ring road", new Vector3(0, 0.03, 105), new Vector3(190, 0.04, 7), road);
-makeBox("west ring road", new Vector3(-150, 0.03, 0), new Vector3(7, 0.04, 205), road);
-makeBox("east ring road", new Vector3(150, 0.03, 0), new Vector3(7, 0.04, 205), road);
-makeBox("east-west path", new Vector3(0, 0.05, 0), new Vector3(230, 0.03, 3.2), path);
-makeBox("north-south path", new Vector3(0, 0.05, 0), new Vector3(3.2, 0.03, 180), path);
-makeBox("library path", new Vector3(-82, 0.05, 55), new Vector3(78, 0.03, 2.8), path);
-makeBox("lab path", new Vector3(86, 0.05, 55), new Vector3(82, 0.03, 2.8), path);
+makeBox("north ring road", new Vector3(0, 0.03, -330), new Vector3(900, 0.04, 10), road);
+makeBox("south ring road", new Vector3(0, 0.03, 330), new Vector3(900, 0.04, 10), road);
+makeBox("west ring road", new Vector3(-430, 0.03, 0), new Vector3(10, 0.04, 660), road);
+makeBox("east ring road", new Vector3(430, 0.03, 0), new Vector3(10, 0.04, 660), road);
+makeBox("central spine road", new Vector3(0, 0.04, 0), new Vector3(860, 0.04, 8), road);
+makeBox("north-south trunk road", new Vector3(0, 0.04, 0), new Vector3(8, 0.04, 650), road);
+makeBox("phase one workshop road", new Vector3(-250, 0.05, -130), new Vector3(260, 0.03, 4.4), path);
+makeBox("phase one service road", new Vector3(-250, 0.05, 140), new Vector3(260, 0.03, 4.4), path);
+makeBox("phase two production road", new Vector3(230, 0.05, -120), new Vector3(300, 0.03, 4.4), path);
+makeBox("logistics connector", new Vector3(265, 0.05, 170), new Vector3(280, 0.03, 4.4), path);
+makeBox("living area path", new Vector3(-90, 0.05, 255), new Vector3(260, 0.03, 4), path);
 
-const addFurniture = (name: string, x: number, z: number, width: number, depth: number) => {
+const addFurniture = (name: string, x: number, z: number, width: number, depth: number, type: BuildingType) => {
   makeBox(`${name} reception`, new Vector3(x, 0.55, z - depth * 0.22), new Vector3(width * 0.28, 1.1, 1.2), furniture);
+
+  if (type === "factory") {
+    for (let i = -2; i <= 2; i += 1) {
+      makeBox(`${name} assembly line ${i + 3}`, new Vector3(x + i * (width / 6), 0.7, z + depth * 0.08), new Vector3(width * 0.08, 1.4, depth * 0.52), equipmentMat);
+    }
+    makeBox(`${name} crane beam`, new Vector3(x, 5.2, z), new Vector3(width * 0.78, 0.5, 0.8), equipmentMat);
+    return;
+  }
+
+  if (type === "warehouse" || type === "logistics") {
+    for (let i = -2; i <= 2; i += 1) {
+      makeBox(`${name} storage rack ${i + 3}`, new Vector3(x + i * (width / 6), 1.4, z + depth * 0.05), new Vector3(width * 0.06, 2.8, depth * 0.56), equipmentMat);
+    }
+    makeBox(`${name} loading platform`, new Vector3(x, 0.6, z + depth / 2 + 6), new Vector3(width * 0.78, 1.2, 5), concrete);
+    return;
+  }
+
+  if (type === "dormitory") {
+    for (let i = -2; i <= 2; i += 1) {
+      makeBox(`${name} room divider ${i + 3}`, new Vector3(x + i * (width / 6), 1.7, z + depth * 0.08), new Vector3(wallThickness, 3.4, depth * 0.58), innerWall);
+    }
+    makeBox(`${name} common lounge`, new Vector3(x, 0.45, z - depth * 0.18), new Vector3(width * 0.36, 0.9, 2), furniture);
+    return;
+  }
+
   makeBox(`${name} table left`, new Vector3(x - width * 0.22, 0.38, z + depth * 0.1), new Vector3(3.2, 0.75, 1.5), furniture);
   makeBox(`${name} table right`, new Vector3(x + width * 0.22, 0.38, z + depth * 0.1), new Vector3(3.2, 0.75, 1.5), furniture);
   makeBox(`${name} back room divider`, new Vector3(x, 1.6, z + depth * 0.22), new Vector3(width * 0.55, 3.2, wallThickness), innerWall);
 };
 
+const createVerticalAccess = (spec: BuildingSpec, floorHeight: number) => {
+  const { name, x, z, width, depth, floors, hasElevator, hasStairs } = spec;
+  const coreX = x - width / 2 + 7;
+  const coreZ = z - depth / 2 + 8;
+
+  if (hasStairs) {
+    makeBox(`${name} stairwell shaft`, new Vector3(coreX, (floors * floorHeight) / 2, coreZ), new Vector3(4.2, floors * floorHeight, 5), stairMat);
+    for (let floor = 0; floor < floors; floor += 1) {
+      for (let step = 0; step < 6; step += 1) {
+        makeBox(
+          `${name} stair ${floor + 1}-${step + 1}`,
+          new Vector3(coreX + (step - 2.5) * 0.55, floor * floorHeight + 0.25 + step * 0.18, coreZ + 1.9),
+          new Vector3(0.55, 0.18, 1.1),
+          concrete
+        );
+      }
+    }
+  }
+
+  if (hasElevator) {
+    const elevatorX = x + width / 2 - 7;
+    const elevatorZ = z - depth / 2 + 8;
+    makeBox(`${name} elevator shaft`, new Vector3(elevatorX, (floors * floorHeight) / 2, elevatorZ), new Vector3(4, floors * floorHeight, 4), innerWall);
+    for (let floor = 0; floor < floors; floor += 1) {
+      makeBox(`${name} elevator door ${floor + 1}`, new Vector3(elevatorX, floor * floorHeight + 1.4, elevatorZ + 2.05), new Vector3(2.1, 2.8, 0.12), elevatorMat, false);
+    }
+  }
+};
+
 const createEnterableBuilding = (spec: BuildingSpec) => {
-  const { name, x, z, width, height, depth, material, lobby } = spec;
+  const { name, x, z, width, height, depth, material, lobby, floors, type } = spec;
+  const floorHeight = height / floors;
   makeBox(`${name} floor`, new Vector3(x, 0.08, z), new Vector3(width, 0.16, depth), floorMat, false);
+  for (let floor = 1; floor < floors; floor += 1) {
+    makeBox(`${name} level ${floor + 1} slab`, new Vector3(x, floor * floorHeight, z), new Vector3(width - 1.2, 0.16, depth - 1.2), floorMat);
+  }
   makeBox(`${name} roof`, new Vector3(x, height + 0.3, z), new Vector3(width + 1.4, 0.6, depth + 1.4), roof);
   makeBox(`${name} north wall`, new Vector3(x, height / 2, z - depth / 2), new Vector3(width, height, wallThickness), material);
   makeBox(`${name} west wall`, new Vector3(x - width / 2, height / 2, z), new Vector3(wallThickness, height, depth), material);
@@ -140,20 +211,34 @@ const createEnterableBuilding = (spec: BuildingSpec) => {
   makeBox(`${name} south wall right`, new Vector3(x + (width + doorWidth) / 4, height / 2, z + depth / 2), new Vector3((width - doorWidth) / 2, height, wallThickness), material);
   makeBox(`${name} lintel`, new Vector3(x, height - 0.7, z + depth / 2), new Vector3(doorWidth, 1.4, wallThickness), material);
   makeBox(`${name} entry marker`, new Vector3(x, 0.06, z + depth / 2 + 3), new Vector3(doorWidth, 0.08, 2.6), markerMat, false);
-  addFurniture(name, x, z, width, depth);
+  addFurniture(name, x, z, width, depth, type);
+  createVerticalAccess(spec, floorHeight);
   createBuildingLabel(name, new Vector3(x, height + 4, z));
-  createBuildingLabel(lobby, new Vector3(x, 3.4, z + depth * 0.18));
+  createBuildingLabel(`${lobby} · ${floors}层`, new Vector3(x, 3.4, z + depth * 0.18));
 };
 
 const buildings: BuildingSpec[] = [
-  { name: "创新中心", x: -92, z: -58, width: 38, height: 18, depth: 46, material: brick, lobby: "开放办公大厅" },
-  { name: "图书馆", x: -90, z: 62, width: 42, height: 15, depth: 50, material: glass, lobby: "阅览大厅" },
-  { name: "综合服务楼", x: 90, z: -60, width: 48, height: 20, depth: 42, material: brick, lobby: "服务大厅" },
-  { name: "实验楼", x: 94, z: 62, width: 44, height: 21, depth: 44, material: glass, lobby: "实验中庭" },
-  { name: "体育馆", x: 0, z: -88, width: 60, height: 16, depth: 34, material: concrete, lobby: "室内球场" },
-  { name: "学生中心", x: 0, z: 88, width: 48, height: 14, depth: 36, material: brick, lobby: "学生活动大厅" },
-  { name: "行政楼", x: -152, z: 0, width: 34, height: 18, depth: 48, material: concrete, lobby: "办事大厅" },
-  { name: "报告厅", x: 152, z: 0, width: 34, height: 16, depth: 48, material: glass, lobby: "观众厅" }
+  { name: "一期轻钢厂房A1", x: -345, z: -220, width: 72, height: 14, depth: 52, material: steel, lobby: "总装线入口", type: "factory", floors: 2, hasStairs: true },
+  { name: "一期轻钢厂房A2", x: -255, z: -220, width: 72, height: 14, depth: 52, material: steel, lobby: "扬声器装配", type: "factory", floors: 2, hasStairs: true },
+  { name: "一期轻钢厂房A3", x: -165, z: -220, width: 72, height: 14, depth: 52, material: steel, lobby: "电子组装", type: "factory", floors: 2, hasStairs: true },
+  { name: "一期轻钢厂房A4", x: -345, z: -120, width: 72, height: 14, depth: 52, material: steel, lobby: "包装线入口", type: "factory", floors: 2, hasStairs: true },
+  { name: "一期轻钢厂房A5", x: -255, z: -120, width: 72, height: 14, depth: 52, material: steel, lobby: "注塑配套", type: "factory", floors: 2, hasStairs: true },
+  { name: "一期轻钢厂房A6", x: -165, z: -120, width: 72, height: 14, depth: 52, material: steel, lobby: "物料暂存", type: "warehouse", floors: 2, hasStairs: true },
+  { name: "一期轻钢厂房A7", x: -345, z: 40, width: 72, height: 14, depth: 52, material: steel, lobby: "零件加工", type: "factory", floors: 2, hasStairs: true },
+  { name: "一期轻钢厂房A8", x: -255, z: 40, width: 72, height: 14, depth: 52, material: steel, lobby: "声学测试", type: "factory", floors: 2, hasStairs: true },
+  { name: "一期轻钢厂房A9", x: -165, z: 40, width: 72, height: 14, depth: 52, material: steel, lobby: "仓储周转", type: "warehouse", floors: 2, hasStairs: true },
+  { name: "一期轻钢厂房A10", x: -345, z: 140, width: 72, height: 14, depth: 52, material: steel, lobby: "来料检验", type: "factory", floors: 2, hasStairs: true },
+  { name: "一期轻钢厂房A11", x: -255, z: 140, width: 72, height: 14, depth: 52, material: steel, lobby: "返修中心", type: "factory", floors: 2, hasStairs: true },
+  { name: "一期轻钢厂房A12", x: -165, z: 140, width: 72, height: 14, depth: 52, material: steel, lobby: "备件仓", type: "warehouse", floors: 2, hasStairs: true },
+  { name: "二期核心生产厂房", x: 210, z: -185, width: 126, height: 28, depth: 90, material: concrete, lobby: "核心设备中庭", type: "factory", floors: 5, hasElevator: true, hasStairs: true },
+  { name: "二期自动化厂房", x: 360, z: -185, width: 92, height: 24, depth: 86, material: concrete, lobby: "自动化产线", type: "factory", floors: 4, hasElevator: true, hasStairs: true },
+  { name: "成品仓储中心", x: 260, z: 60, width: 118, height: 18, depth: 82, material: steel, lobby: "高位货架区", type: "warehouse", floors: 3, hasElevator: true, hasStairs: true },
+  { name: "物流装卸中心", x: 360, z: 175, width: 96, height: 16, depth: 70, material: steel, lobby: "月台调度", type: "logistics", floors: 2, hasStairs: true },
+  { name: "总部行政办公楼", x: 20, z: -250, width: 86, height: 32, depth: 58, material: glass, lobby: "总部接待大厅", type: "office", floors: 7, hasElevator: true, hasStairs: true },
+  { name: "研发测试中心", x: 95, z: 70, width: 82, height: 26, depth: 64, material: glass, lobby: "声学实验室", type: "office", floors: 6, hasElevator: true, hasStairs: true },
+  { name: "员工宿舍楼1", x: -115, z: 270, width: 74, height: 30, depth: 48, material: dormMat, lobby: "宿舍门厅", type: "dormitory", floors: 8, hasElevator: true, hasStairs: true },
+  { name: "员工宿舍楼2", x: -20, z: 270, width: 74, height: 30, depth: 48, material: dormMat, lobby: "生活区门厅", type: "dormitory", floors: 8, hasElevator: true, hasStairs: true },
+  { name: "食堂及生活配套楼", x: 95, z: 270, width: 88, height: 18, depth: 56, material: brick, lobby: "员工食堂", type: "amenity", floors: 4, hasElevator: true, hasStairs: true }
 ];
 
 buildings.forEach(createEnterableBuilding);
@@ -164,15 +249,15 @@ plaza.material = path;
 plaza.checkCollisions = true;
 
 const lake = MeshBuilder.CreateCylinder("景观湖", { diameter: 1, height: 0.08, tessellation: 64 }, scene);
-lake.position = new Vector3(0, 0.1, 126);
-lake.scaling = new Vector3(48, 1, 16);
+lake.position = new Vector3(125, 0.1, 310);
+lake.scaling = new Vector3(85, 1, 24);
 lake.material = water;
-createBuildingLabel("景观湖", new Vector3(0, 7, 126));
+createBuildingLabel("景观湖", new Vector3(125, 7, 310));
 
-for (let i = 0; i < 96; i += 1) {
-  const angle = (i / 96) * Math.PI * 2;
-  const radiusX = i % 2 === 0 ? 190 : 168;
-  const radiusZ = i % 3 === 0 ? 128 : 112;
+for (let i = 0; i < 180; i += 1) {
+  const angle = (i / 180) * Math.PI * 2;
+  const radiusX = i % 2 === 0 ? 470 : 410;
+  const radiusZ = i % 3 === 0 ? 380 : 330;
   const trunk = MeshBuilder.CreateCylinder(`tree trunk ${i}`, { diameter: 0.6, height: 2.8 }, scene);
   trunk.position = new Vector3(Math.cos(angle) * radiusX, 1.4, Math.sin(angle) * radiusZ);
   trunk.material = createMaterial(`trunk mat ${i}`, new Color3(0.38, 0.22, 0.12));
@@ -184,12 +269,12 @@ for (let i = 0; i < 96; i += 1) {
 }
 
 const player = MeshBuilder.CreateCapsule("visitor avatar", { height: 2.2, radius: 0.45 }, scene);
-player.position = new Vector3(0, 1.1, -124);
+player.position = new Vector3(0, 1.1, -355);
 player.material = createMaterial("visitor blue", new Color3(0.1, 0.34, 0.9));
 player.checkCollisions = true;
 player.ellipsoid = new Vector3(0.55, 1.1, 0.55);
 
-const firstCamera = new UniversalCamera("first person camera", new Vector3(0, 2.0, -124), scene);
+const firstCamera = new UniversalCamera("first person camera", new Vector3(0, 2.0, -355), scene);
 firstCamera.attachControl(canvas, true);
 firstCamera.speed = 0.65;
 firstCamera.angularSensibility = 3200;
@@ -208,10 +293,10 @@ thirdCamera.upperRadiusLimit = 32;
 thirdCamera.wheelDeltaPercentage = 0.02;
 thirdCamera.checkCollisions = true;
 
-const overheadCamera = new ArcRotateCamera("overhead camera", Math.PI / 2, 0.08, 260, Vector3.Zero(), scene);
+const overheadCamera = new ArcRotateCamera("overhead camera", Math.PI / 2, 0.08, 760, Vector3.Zero(), scene);
 overheadCamera.attachControl(canvas, true);
-overheadCamera.lowerRadiusLimit = 120;
-overheadCamera.upperRadiusLimit = 360;
+overheadCamera.lowerRadiusLimit = 220;
+overheadCamera.upperRadiusLimit = 1050;
 overheadCamera.wheelDeltaPercentage = 0.03;
 overheadCamera.panningSensibility = 80;
 
