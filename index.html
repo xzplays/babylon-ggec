@@ -9,11 +9,11 @@
     <canvas id="renderCanvas" aria-label="Babylon.js 园区三维场景"></canvas>
     <div id="hud">
       <h1>1:1 现实比例园区展示</h1>
-      <p>1 单位 = 1 米；WASD/方向键按当前视角方向移动，Shift 加速，V 切换视角，E 进门，电梯旁按 F 换层。</p>
+      <p>1 单位 = 1 米；第一视角导览模式默认慢速步行，WASD/方向键移动，鼠标转向，Shift 慢速加速，V 切换视角，E 进门，F 换层。</p>
       <p id="modeLabel">当前：第一视角</p>
       <p id="locationLabel">位置：室外园区</p>
       <p id="scaleLabel">比例：1 Babylon单位 = 1米</p>
-      <label id="speedControl">移动速度：<input id="speedSlider" type="range" min="1.2" max="4.5" step="0.1" value="1.6" /><span id="speedLabel">1.6 m/s</span></label>
+      <label id="speedControl">移动速度：<input id="speedSlider" type="range" min="0.5" max="2.2" step="0.05" value="1.25" /><span id="speedLabel">1.25 m/s</span></label><button id="resetButton" type="button">重置到主入口</button>
     </div>
     <aside id="buildingPanel" aria-label="快捷建筑列表">
       <div class="panelHeader"><h2>快捷建筑</h2><button id="panelToggle" type="button" aria-expanded="true">收起</button></div>
