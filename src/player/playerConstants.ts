@@ -1,7 +1,7 @@
 export const DEFAULT_WALK_SPEED = 1.25;
-export const MIN_WALK_SPEED = 0.5;
-export const MAX_WALK_SPEED = 2.2;
-export const SHIFT_SPEED_MULTIPLIER = 1.8;
+export const MIN_WALK_SPEED = 1;
+export const MAX_WALK_SPEED = 20;
+export const SHIFT_SPEED_MULTIPLIER = 1.0;
 export const EYE_HEIGHT = 1.62;
 export const PLAYER_HEIGHT = 1.72;
 export const PLAYER_RADIUS = 0.32;
