@@ -36,6 +36,20 @@ body,
   font-size: 14px;
 }
 
+#speedControl {
+  display: grid;
+  grid-template-columns: auto minmax(140px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 13px;
+  pointer-events: auto;
+}
+
+#speedSlider {
+  accent-color: #38bdf8;
+}
+
 #buildingPanel {
   position: fixed;
   top: 16px;
@@ -53,8 +67,37 @@ body,
 }
 
 #buildingPanel h2 {
-  margin: 0 0 6px;
+  margin: 0;
   font-size: 18px;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+#panelToggle {
+  color: #ecfeff;
+  background: rgba(15, 118, 110, 0.82);
+  border: 1px solid rgba(204, 251, 241, 0.36);
+  border-radius: 999px;
+  cursor: pointer;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 12px;
+}
+
+#buildingPanel.collapsed {
+  width: auto;
+  max-height: none;
+  overflow: hidden;
+}
+
+#buildingPanel.collapsed .panelBody {
+  display: none;
 }
 
 #buildingPanel p {
