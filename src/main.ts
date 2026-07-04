@@ -301,6 +301,9 @@ thirdCamera.lowerRadiusLimit = 7;
 thirdCamera.upperRadiusLimit = 32;
 thirdCamera.wheelDeltaPercentage = 0.02;
 thirdCamera.checkCollisions = true;
+thirdCamera.collisionRadius = new Vector3(0.9, 0.9, 0.9);
+thirdCamera.lowerBetaLimit = 0.72;
+thirdCamera.upperBetaLimit = 1.28;
 
 const overheadCamera = new ArcRotateCamera("overhead camera", Math.PI / 2, 0.08, 900, Vector3.Zero(), scene);
 overheadCamera.attachControl(canvas, true);
@@ -315,6 +318,7 @@ const syncCamerasTo = (position: Vector3, yaw = 0) => {
   player.position.copyFrom(position);
   firstCamera.position.copyFrom(position).addInPlaceFromFloats(0, 0.9, 0);
   firstCamera.rotation = new Vector3(0, yaw, 0);
+  tuneThirdCameraForLocation();
   thirdCamera.target = player.position.add(new Vector3(0, 1.1, 0));
   overheadCamera.target = player.position;
 };
@@ -328,6 +332,35 @@ const goToBuilding = (building: BuildingSpec, inside: boolean) => {
 };
 
 const modeText = (mode: ViewMode) => (mode === "first" ? "第一视角" : mode === "third" ? "第三视角" : "俯瞰视角");
+
+const buildingAt = (position: Vector3) =>
+  buildings.find(
+    (building) =>
+      Math.abs(position.x - building.x) <= building.width / 2 - wallThickness &&
+      Math.abs(position.z - building.z) <= building.depth / 2 - wallThickness &&
+      position.y >= 0 &&
+      position.y <= usableFloorHeight(building) * building.floors + 0.8
+  );
+
+const tuneThirdCameraForLocation = () => {
+  const building = buildingAt(player.position);
+  if (!building) {
+    thirdCamera.lowerRadiusLimit = 7;
+    thirdCamera.upperRadiusLimit = 32;
+    thirdCamera.upperBetaLimit = 1.28;
+    return;
+  }
+
+  const floorHeight = usableFloorHeight(building);
+  const currentFloorBase = Math.max(0, Math.floor((player.position.y - 0.2) / floorHeight) * floorHeight);
+  const headClearance = Math.max(2.2, currentFloorBase + floorHeight - (player.position.y + 1.1));
+  thirdCamera.lowerRadiusLimit = 3.2;
+  thirdCamera.upperRadiusLimit = Math.min(9, Math.max(4.4, headClearance * 2.2));
+  thirdCamera.upperBetaLimit = Math.min(1.2, Math.max(0.82, Math.acos(Math.min(0.82, headClearance / thirdCamera.radius))));
+  if (thirdCamera.radius > thirdCamera.upperRadiusLimit) thirdCamera.radius = thirdCamera.upperRadiusLimit;
+  if (thirdCamera.beta > thirdCamera.upperBetaLimit) thirdCamera.beta = thirdCamera.upperBetaLimit;
+};
+
 const setViewMode = (mode: ViewMode) => {
   if (viewMode === "first") {
     player.position.copyFrom(firstCamera.position).addInPlaceFromFloats(0, -1, 0);
@@ -336,6 +369,7 @@ const setViewMode = (mode: ViewMode) => {
   }
 
   viewMode = mode;
+  if (mode === "third") tuneThirdCameraForLocation();
   scene.activeCamera = mode === "first" ? firstCamera : mode === "third" ? thirdCamera : overheadCamera;
   modeLabel!.textContent = `当前：${modeText(mode)}`;
 };
@@ -394,12 +428,10 @@ window.addEventListener("keyup", (event) => keys.delete(event.code));
 
 scene.onBeforeRenderObservable.add(() => {
   if (viewMode === "first") {
-    const forward = firstCamera.getDirection(Vector3.Forward());
+    const forward = firstCamera.getForwardRay().direction.scale(-1);
     forward.y = 0;
     forward.normalize();
-    const right = firstCamera.getDirection(Vector3.Right());
-    right.y = 0;
-    right.normalize();
+    const right = Vector3.Cross(forward, Vector3.Up()).normalize();
     const direction = Vector3.Zero();
     if (keys.has("KeyW") || keys.has("ArrowUp")) direction.addInPlace(forward);
     if (keys.has("KeyS") || keys.has("ArrowDown")) direction.subtractInPlace(forward);
@@ -432,6 +464,7 @@ scene.onBeforeRenderObservable.add(() => {
     direction.normalize().scaleInPlace(keys.has("ShiftLeft") || keys.has("ShiftRight") ? walkSpeed * 1.8 : walkSpeed);
     player.moveWithCollisions(direction);
   }
+  tuneThirdCameraForLocation();
   thirdCamera.target = player.position.add(new Vector3(0, 1.1, 0));
   overheadCamera.target = player.position;
 });
