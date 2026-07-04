@@ -1,0 +1,9 @@
+import { ArcRotateCamera, Scene, UniversalCamera, Vector3 } from "@babylonjs/core";
+export type ViewMode="first"|"third"|"overhead";
+export const modeText=(m:ViewMode)=>m==="first"?"第一视角":m==="third"?"第三视角":"俯瞰视角";
+export const createCameraController=(scene:Scene,canvas:HTMLCanvasElement,player:any)=>{const first=new UniversalCamera("第一视角相机",new Vector3(0,2,-430),scene);first.attachControl(canvas,true);first.speed=0;first.angularSensibility=3200;first.applyGravity=true;first.checkCollisions=true;first.ellipsoid=new Vector3(.45,.9,.45);first.keysUp=[];first.keysDown=[];first.keysLeft=[];first.keysRight=[];first.maxZ=5000;
+const third=new ArcRotateCamera("第三视角相机",Math.PI/2,Math.PI/3,16,player.position,scene);third.attachControl(canvas,true);third.lowerRadiusLimit=4;third.upperRadiusLimit=32;third.wheelDeltaPercentage=.02;third.checkCollisions=true;third.maxZ=5000;
+const overhead=new ArcRotateCamera("俯瞰相机",Math.PI/2,.08,1050,Vector3.Zero(),scene);overhead.attachControl(canvas,true);overhead.lowerRadiusLimit=250;overhead.upperRadiusLimit=1600;overhead.wheelDeltaPercentage=.03;overhead.panningSensibility=70;overhead.maxZ=6000;
+let viewMode:ViewMode="first";scene.activeCamera=first;const setViewMode=(m:ViewMode)=>{if(viewMode==="first")player.position.copyFrom(first.position).addInPlaceFromFloats(0,-.9,0); if(m==="first")first.position.copyFrom(player.position).addInPlaceFromFloats(0,.9,0); viewMode=m; scene.activeCamera=m==="first"?first:m==="third"?third:overhead;};
+const syncTo=(p:Vector3,yaw=0)=>{player.position.copyFrom(p);first.position.copyFrom(p).addInPlaceFromFloats(0,.9,0);first.rotation=new Vector3(0,yaw,0);third.target=player.position.add(new Vector3(0,1.1,0));overhead.target=player.position;};
+return {first,third,overhead,get viewMode(){return viewMode},setViewMode,syncTo};};
