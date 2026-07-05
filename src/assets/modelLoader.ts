@@ -1,4 +1,5 @@
-import { AbstractMesh, AssetContainer, Scene, SceneLoader, TransformNode, Node } from "@babylonjs/core";
+import { AbstractMesh, AssetContainer, Node, Scene, SceneLoader, TransformNode } from "@babylonjs/core";
+import "@babylonjs/loaders/glTF";
 import { findModelAsset, ModelAssetRole } from "./assetManifest";
 import { isPermittedCommercialAsset } from "./licenseRegistry";
 
@@ -9,13 +10,19 @@ export async function tryAttachModel(scene: Scene, role: ModelAssetRole, parent:
   const asset = findModelAsset(role);
   if (!asset || !isPermittedCommercialAsset(asset.licenseRecordId)) return false;
   try {
-    await import("@babylonjs/loaders/glTF/2.0/glTFLoader");
     const parts = splitPath(asset.path);
     const promise = cache.get(asset.path) ?? SceneLoader.LoadAssetContainerAsync(parts.rootUrl, parts.fileName, scene);
     cache.set(asset.path, promise);
     const container = await promise;
     const entries = container.instantiateModelsToScene(n => `${parent.name}-${n}`, false, { doNotInstantiate: false });
-    entries.rootNodes.forEach((node: Node) => { node.parent = parent; const t = node as TransformNode; t.scaling?.scaleInPlace(asset.scale ?? 1); if (t.position) t.position.y += asset.yOffset ?? 0; if (t.rotation) t.rotation.y += asset.rotationY ?? 0; });
+    entries.rootNodes.forEach((node: Node) => {
+      node.parent = parent;
+      if (node instanceof TransformNode) {
+        node.scaling.scaleInPlace(asset.scale ?? 1);
+        node.position.y += asset.yOffset ?? 0;
+        node.rotation.y += asset.rotationY ?? 0;
+      }
+    });
     fallbackMeshes.forEach(m => m.setEnabled(false));
     const walk = container.animationGroups.find(g => (asset.animationHints ?? []).some(h => g.name.toLowerCase().includes(h)));
     walk?.start(true);
