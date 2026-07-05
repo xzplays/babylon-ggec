@@ -4,6 +4,8 @@ import { createBuilding } from "../buildings/createBuilding";
 import { createCampusMaterials } from "../materials/materials";
 import { createLabel } from "../utils/label";
 import { applyMeshMetadata, createBoxMesh } from "../utils/meshFactory";
+import { createPedestrianSystem } from "../traffic/pedestrianSystem";
+import { createVehicleSystem } from "../traffic/vehicleSystem";
 
 const box=(scene:Scene,n:string,p:Vector3,s:Vector3,m:any,c=true,walkable=false,blocksCamera=c)=>createBoxMesh(scene,{name:n,position:p,scaling:s,material:m,collides:c,walkable,blocksCamera});
 const cyl=(scene:Scene,n:string,p:Vector3,diameter:number,height:number,m:any,c=true,walkable=false,blocksCamera=c)=>{const b=MeshBuilder.CreateCylinder(n,{diameter,height,tessellation:16},scene);b.position=p;b.material=m;applyMeshMetadata(b,{collides:c,walkable,blocksCamera});return b;};
@@ -19,6 +21,19 @@ const createPedestrian=(scene:Scene,name:string,p:Vector3,m:any,rot=0)=>{cyl(sce
 const createBench=(scene:Scene,name:string,p:Vector3,m:any,rot=0)=>{const seat=box(scene,`${name}-seat`,p.add(new Vector3(0,.55,0)),new Vector3(4,.18,1),m.furniture,true);seat.rotation.y=rot;const back=box(scene,`${name}-back`,p.add(new Vector3(0,1,.45)),new Vector3(4,.9,.18),m.furniture,true);back.rotation.y=rot;};
 const createTrashBin=(scene:Scene,name:string,p:Vector3,m:any)=>cyl(scene,name,p.add(new Vector3(0,.55,0)),.75,1.1,m.dark,true);
 const createSign=(scene:Scene,name:string,text:string,p:Vector3,m:any)=>{cyl(scene,`${name}-post`,p.add(new Vector3(0,1.35,0)),.16,2.7,m.concrete,false);box(scene,`${name}-board`,p.add(new Vector3(0,2.8,0)),new Vector3(5,.12,2.2),m.dark,false);createLabel(scene,text,p.add(new Vector3(0,3.15,-.12)),14,2.2);};
+
+const createCityEnvironment=(scene:Scene,m:any)=>{
+ box(scene,"外部城市双向主路",new Vector3(0,.035,-540),new Vector3(1320,.08,72),m.road,true,true,false);
+ box(scene,"北侧城市人行道",new Vector3(0,.08,-492),new Vector3(1320,.08,16),m.path,true,true,false); box(scene,"南侧城市人行道",new Vector3(0,.08,-588),new Vector3(1320,.08,16),m.path,true,true,false);
+ for(let x=-620;x<=620;x+=40){box(scene,`外部车道虚线-${x}`,new Vector3(x,.13,-540),new Vector3(18,.04,.35),m.white,false); box(scene,`外部中央黄线-${x}`,new Vector3(x,.14,-520),new Vector3(22,.04,.28),m.equipment,false);}
+ for(let i=-4;i<=4;i++){box(scene,`主入口斑马线-${i}`,new Vector3(i*3,.16,-520),new Vector3(1.25,.04,54),m.white,false);}
+ for(let x=-560;x<=560;x+=80){box(scene,`外部路灯杆-${x}`,new Vector3(x,4,-492),new Vector3(.32,8,.32),m.concrete,false);box(scene,`外部路灯头-${x}`,new Vector3(x,8.1,-497),new Vector3(3,.25,.5),m.white,false);}
+ box(scene,"城市公交站台",new Vector3(-190,1.6,-488),new Vector3(22,3.2,3),m.glass,false); createLabel(scene,"产业园站",new Vector3(-190,4.4,-490),16,2.2);
+ [[-18,-492],[18,-492],[-18,-588],[18,-588]].forEach(([x,z],i)=>{box(scene,`红绿灯杆-${i}`,new Vector3(x,3,z),new Vector3(.25,6,.25),m.dark,false);box(scene,`红绿灯箱-${i}`,new Vector3(x,6.2,z),new Vector3(1,.7,.5),i%2?m.marker:m.equipment,false);});
+ for(let i=0;i<28;i++){const x=-610+i*45; const z=i%2?-610:-470; const h=18+(i%7)*8; box(scene,`城市建筑主体-${i}`,new Vector3(x,h/2,z),new Vector3(28+(i%3)*8,h,24+(i%4)*5),i%3?m.concrete:m.glass,true); for(let f=0;f<h/4-1;f++) for(let c=-1;c<=1;c++) box(scene,`城市窗-${i}-${f}-${c}`,new Vector3(x+c*8,4+f*4,z+(z<-540?12.3:-12.3)),new Vector3(3,1.4,.12),f%3?m.glass:m.white,false); box(scene,`屋顶设备-${i}`,new Vector3(x,h+1.2,z),new Vector3(8,2.4,6),m.equipment,true); if(i%4===0) createLabel(scene,i%8===0?"咖啡便利":"办公租赁",new Vector3(x,h*.45,z+(z<-540?12.8:-12.8)),14,2);}
+ for(let x=-620;x<=620;x+=90){cyl(scene,`城市树池-${x}`,new Vector3(x,.15,-488),4,.3,m.path,false); const tr=cyl(scene,`城市树干-${x}`,new Vector3(x,1.5,-488),.35,3,m.trunk,true); const cr=MeshBuilder.CreateSphere(`城市树冠-${x}`,{diameter:5,segments:10},scene);cr.position=new Vector3(x,4.2,-488);cr.material=m.crown;}
+ box(scene,"远景天际线基座",new Vector3(0,20,-690),new Vector3(1250,40,20),m.glass,false);
+};
 const createOfficeCluster=(scene:Scene,name:string,p:Vector3,m:any)=>{for(let i=0;i<4;i++){box(scene,`${name}-desk-${i}`,p.add(new Vector3((i-1.5)*4,.55,0)),new Vector3(2.4,.18,1.4),m.furniture,true);box(scene,`${name}-monitor-${i}`,p.add(new Vector3((i-1.5)*4,1.05,-.35)),new Vector3(.9,.55,.08),m.dark,false);box(scene,`${name}-chair-${i}`,p.add(new Vector3((i-1.5)*4,.45,1.2)),new Vector3(.7,.9,.7),m.dark,true);}};
 
 export const createCampusScene=(scene:Scene)=>{scene.clearColor=new Color4(.62,.82,1,1);scene.collisionsEnabled=true;scene.gravity=new Vector3(0,-.35,0);new HemisphericLight("现实尺度天空光",new Vector3(.4,1,.2),scene).intensity=.82;const m=createCampusMaterials(scene);
@@ -34,9 +49,11 @@ export const createCampusScene=(scene:Scene)=>{scene.clearColor=new Color4(.62,.
  for(let x=-520;x<=520;x+=80){box(scene,`主干道路灯-${x}`,new Vector3(x,4,10),new Vector3(.35,8,.35),m.concrete,false);box(scene,`路灯灯头-${x}`,new Vector3(x,8.2,10),new Vector3(3,.25,.5),m.white,false);}
  [-420,-260,-100,100,260,420].forEach((x,i)=>{createSign(scene,`园区导览牌-${i}`,i%2?"仓储物流 / 生产区":"访客中心 / 办公区",new Vector3(x,0,-22),m);createTrashBin(scene,`分类垃圾桶-${i}`,new Vector3(x+14,0,-18),m);});
  [[-38,0],[38,0],[-18,28],[18,28]].forEach(([x,z],i)=>createBench(scene,`中央广场长椅-${i}`,new Vector3(x,0,z),m,i<2?0:Math.PI/2));
+ createCityEnvironment(scene,m);
  createOfficeCluster(scene,"总部开放办公区",new Vector3(0,0,-287),m); createOfficeCluster(scene,"研发样机办公区",new Vector3(75,0,72),m);
  for(let i=0;i<12;i++)createVehicle(scene,`仓储叉车-${i}`,new Vector3(225+(i%4)*28,0,97+Math.floor(i/4)*22),m,"forklift",Math.PI/2);
  for(let i=0;i<36;i++)box(scene,`室外托盘货物-${i}`,new Vector3(190+(i%9)*18,.65,124+Math.floor(i/9)*14),new Vector3(5,1.3,4),i%2?m.furniture:m.equipment,true);
  for(let i=0;i<96;i++){const a=i/96*Math.PI*2,rx=i%2?510:455,rz=i%3?380:325; const x=Math.cos(a)*rx,z=Math.sin(a)*rz; const trunk=MeshBuilder.CreateCylinder(`树干实例源-${i}`,{diameter:.55,height:2.8},scene);trunk.position=new Vector3(x,1.4,z);trunk.material=m.trunk;applyMeshMetadata(trunk,{collides:true,walkable:false,blocksCamera:true}); const crown=MeshBuilder.CreateSphere(`树冠实例源-${i}`,{diameter:4.6,segments:10},scene);crown.position=new Vector3(x,4.1,z);crown.material=m.crown;}
  box(scene,"100m比例尺",new Vector3(-520,.12,425),new Vector3(100,.12,2),m.white,false);createLabel(scene,"100m 比例尺（1 Babylon单位 = 1米）",new Vector3(-470,7,425),28,4);
- return {materials:m,buildings};};
+ const pedestrians=createPedestrianSystem(scene,m,40); const vehicles=createVehicleSystem(scene,m,pedestrians.people);
+ return {materials:m,buildings,pedestrians,vehicles};};
